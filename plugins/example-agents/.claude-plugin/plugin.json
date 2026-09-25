@@ -1,0 +1,7 @@
+{
+  "name": "example-agents",
+  "version": "1.0.0",
+  "description": "Example subagents to copy and adapt: policy-reviewer, adr-scout, requirements-tracer, green-keeper.",
+  "author": { "name": "lemon-official" },
+  "dependencies": ["org-policies"]
+}

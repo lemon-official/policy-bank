@@ -2,16 +2,24 @@
 # Every control cites an ADR in docs/adr/ (ADR-NNNN) or an org ADR (ORG-NNNN).
 # The central check only evaluates controls whose applies_to globs match changed files
 # (all of them when this file changes).
+#
+# spec-gate and stop-gate switch on hooks from the org-guardrails plugin (ORG-0006). Keep
+# their extra keys flat (strings, numbers, inline lists): the hook reads them without PyYAML.
 controls:
   - id: spec-gate
-    kind: hook                       # PreToolUse Edit|Write, .claude/hooks/spec-gate.sh
+    kind: hook                       # PreToolUse Edit|Write: no code before an accepted spec
     adr: ADR-0012
     applies_to: ["src/**", ".claude/**"]
+    paths: ["src/**"]                # files that need docs/changes/<id>/spec.md accepted and merged
 
   - id: stop-gate
-    kind: hook                       # Stop, .claude/hooks/stop-gate.sh
+    kind: hook                       # Stop: tests pass before the agent says it's done
     adr: ADR-0014
     applies_to: ["src/**", ".claude/**"]
+    command: "make test"             # run from the repo root; exit 0 means green
+    paths: ["src/**"]                # only run when these changed (vs the default branch)
+    timeout: 300                     # seconds
+    max_blocks: 3                    # stop blocking after this many red runs in one session
 
   - id: coverage
     kind: threshold

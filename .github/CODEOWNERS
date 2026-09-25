@@ -8,5 +8,7 @@
 /plugins/org-policies/skills/brand-guidelines/        @my-org/brand
 /plugins/org-policies/skills/security-policy/         @my-org/security
 /plugins/org-policies/skills/ux-standards/            @my-org/design
+/plugins/org-guardrails/                              @my-org/platform @my-org/security
 /plugins/sdlc-intent/                                 @my-org/product-owners @my-org/platform
 /scripts/install.sh                                   @my-org/platform
+/plugins/example-agents/                              @my-org/platform

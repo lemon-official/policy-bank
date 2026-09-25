@@ -64,10 +64,11 @@ echo '{ "permissions": { "allow": ["Bash(npm test *)"] }, "hooks": {} }' > "$R/.
 g "$R" add -A; g "$R" commit -qm "add guards"
 printf 'Adds a couple of guards.\n' > "$OUT/missing-adr.body"
 
-# 3) loosens org rules: allows gh pr *, disables an org control, coverage below floor,
-#    drops the /docs/adr/ CODEOWNERS line. Body cites an Accepted ADR, so only loosening fails.
+# 3) loosens org rules: allows gh pr *, turns off hooks, disables an org control, coverage
+#    below floor, drops the /docs/adr/ CODEOWNERS line. Body cites an Accepted ADR, so only
+#    loosening fails.
 R="$OUT/loosens"; base_repo "$R"
-echo '{ "permissions": { "allow": ["Bash(npm test *)", "Bash(gh pr *)"] } }' > "$R/.claude/settings.json"
+echo '{ "permissions": { "allow": ["Bash(npm test *)", "Bash(gh pr *)"] }, "disableAllHooks": true }' > "$R/.claude/settings.json"
 sed -i.bak 's/value: 85/value: 70/' "$R/policy/controls.yaml" && rm "$R/policy/controls.yaml.bak"
 printf 'overrides:\n  disable: [org.no-bypass-mode]\n' >> "$R/policy/controls.yaml"
 sed -i.bak '/docs\/adr/d' "$R/.github/CODEOWNERS" && rm "$R/.github/CODEOWNERS.bak"

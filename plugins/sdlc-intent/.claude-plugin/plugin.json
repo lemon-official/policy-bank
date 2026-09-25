@@ -1,7 +1,7 @@
 {
   "name": "sdlc-intent",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Product owner skills: write-intent, review-spec-against-intent, resolve-concerns, accept-spec.",
   "author": { "name": "lemon-official" },
-  "dependencies": ["org-policies"]
+  "dependencies": ["org-policies", "org-guardrails"]
 }
