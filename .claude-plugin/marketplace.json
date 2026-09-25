@@ -4,8 +4,8 @@
     "name": "lemon-official"
   },
   "metadata": {
-    "description": "Org SDLC skills: role plugins for writing intents, specs and plans, plus the org policy skills they apply.",
-    "version": "1.0.0"
+    "description": "Org SDLC skills: role plugins for writing intents, specs and plans, the org policy skills they apply, guardrail hooks, and example agents.",
+    "version": "1.1.0"
   },
   "plugins": [
     {
@@ -16,25 +16,39 @@
       "category": "policy"
     },
     {
+      "name": "org-guardrails",
+      "source": "./plugins/org-guardrails",
+      "description": "Hooks that enforce the org ADRs on every machine: no merge, force-push or .env reads, spec gate, stop gate.",
+      "version": "1.0.0",
+      "category": "policy"
+    },
+    {
       "name": "sdlc-intent",
       "source": "./plugins/sdlc-intent",
       "description": "Product owners: write intent.md, review spec.md against it, resolve flagged concerns, accept the spec.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "sdlc"
     },
     {
       "name": "sdlc-spec",
       "source": "./plugins/sdlc-spec",
       "description": "Spec writers: turn an accepted intent.md into spec.md with flagged concerns.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "sdlc"
     },
     {
       "name": "sdlc-plan",
       "source": "./plugins/sdlc-plan",
       "description": "Engineers: turn an accepted spec.md into plan.md for plan mode.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "sdlc"
+    },
+    {
+      "name": "example-agents",
+      "source": "./plugins/example-agents",
+      "description": "Example subagents to copy and adapt: policy-reviewer, adr-scout, requirements-tracer, green-keeper.",
+      "version": "1.0.0",
+      "category": "examples"
     }
   ]
 }

@@ -8,7 +8,7 @@ Fails when:
      without referencing an Accepted ADR in the PR body or in a changed ADR file;
   3. a repo-local rule loosens an org control (disables it, allows what it
      denies, drops a threshold below the org floor, removes a required
-     CODEOWNERS line).
+     CODEOWNERS line, turns off the org guardrail hooks).
 
 A control is in scope when one of its `applies_to` globs matches a changed
 file, or when the registry file that defines it changed.
@@ -204,18 +204,27 @@ def allow_covers_deny(allow: str, deny: str) -> bool:
     return bool(rx.match(d))
 
 
-def local_allow_rules(repo: Path) -> list[tuple[str, str]]:
-    rules = []
+def local_settings(repo: Path) -> list[tuple[str, dict | str]]:
+    """(path, parsed settings) per repo settings file; a string when the JSON is invalid."""
+    out = []
     for rel in (".claude/settings.json", ".claude/settings.local.json"):
         p = repo / rel
         if p.exists():
             try:
-                data = json.loads(p.read_text(encoding="utf-8"))
+                out.append((rel, json.loads(p.read_text(encoding="utf-8"))))
             except json.JSONDecodeError as e:
-                rules.append((rel, f"__invalid__:{e}"))
-                continue
-            for r in (data.get("permissions") or {}).get("allow") or []:
-                rules.append((rel, r))
+                out.append((rel, str(e)))
+    return out
+
+
+def local_allow_rules(repo: Path) -> list[tuple[str, str]]:
+    rules = []
+    for rel, data in local_settings(repo):
+        if isinstance(data, str):
+            rules.append((rel, f"__invalid__:{data}"))
+            continue
+        for r in (data.get("permissions") or {}).get("allow") or []:
+            rules.append((rel, r))
     return rules
 
 
@@ -264,7 +273,19 @@ def check_loosening(ck: Checker, org: list[dict], local_doc: dict,
                         ck.fail(lbl, f"local control '{lc.get('id')}' sets {key}={lc['value']}, "
                                 f"below the org floor {floor} ('{cid}')", LOCAL_REGISTRY)
 
-        # d) required CODEOWNERS lines
+        # d) turning off an org plugin's hooks
+        elif kind == "plugin-enabled":
+            plugin = c.get("plugin")
+            for src, data in local_settings(ck.repo):
+                if isinstance(data, str):
+                    continue
+                if data.get("disableAllHooks") is True:
+                    ck.fail(lbl, f"{src} sets disableAllHooks, which turns off org control "
+                            f"'{cid}' ({plugin})", src)
+                if (data.get("enabledPlugins") or {}).get(plugin) is False:
+                    ck.fail(lbl, f"{src} disables {plugin} (org control '{cid}')", src)
+
+        # e) required CODEOWNERS lines
         elif kind == "codeowners":
             owners = next((ck.repo / p for p in (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS")
                            if (ck.repo / p).exists()), None)

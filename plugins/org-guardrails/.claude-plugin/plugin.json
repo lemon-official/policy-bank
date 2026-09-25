@@ -1,0 +1,6 @@
+{
+  "name": "org-guardrails",
+  "version": "1.0.0",
+  "description": "Hooks that enforce the org ADRs: no merge, force-push or .env reads (ORG-0002), spec gate (ORG-0001), stop gate, protected-path reminders (ORG-0005).",
+  "author": { "name": "lemon-official" }
+}

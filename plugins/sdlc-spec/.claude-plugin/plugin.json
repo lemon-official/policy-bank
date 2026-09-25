@@ -1,7 +1,7 @@
 {
   "name": "sdlc-spec",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Spec writer skills: spec-from-intent.",
   "author": { "name": "lemon-official" },
-  "dependencies": ["org-policies"]
+  "dependencies": ["org-policies", "org-guardrails"]
 }

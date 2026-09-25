@@ -6,6 +6,7 @@ on:
     paths:
       - ".claude-plugin/**"
       - "plugins/**"
+      - "tests/test_guard.py"
 
 permissions:
   contents: read
@@ -27,3 +28,5 @@ jobs:
         run: |
           claude plugin validate --strict .
           for p in plugins/*/; do claude plugin validate --strict "$p"; done
+      - name: Test guardrail hooks
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v

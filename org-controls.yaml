@@ -35,3 +35,9 @@ controls:
     key: coverage_min
     min: 80
     applies_to: ["src/**", "policy/controls.yaml"]
+
+  - id: org.guardrail-hooks
+    kind: plugin-enabled             # repos may not disable the plugin or turn off hooks
+    adr: ORG-0006
+    applies_to: [".claude/**"]
+    plugin: "org-guardrails@policy-bank"
