@@ -1,0 +1,7 @@
+{
+  "name": "sdlc-plan",
+  "version": "1.0.0",
+  "description": "Engineer skills: plan-from-spec.",
+  "author": { "name": "lemon-official" },
+  "dependencies": ["org-policies"]
+}

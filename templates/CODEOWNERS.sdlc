@@ -1,0 +1,15 @@
+# SDLC role reviewers. Copy into <service-repo>/.github/CODEOWNERS and replace the teams.
+# The last matching line wins, so the per-document lines override /docs/changes/.
+# With the org ruleset's "Require review from Code Owners", GitHub requests these teams
+# automatically on every PR that touches the document, and one of them must approve.
+
+# Required by ORG-0001 (org.artifact-gates): keep these two lines.
+/docs/changes/                  @my-org/product-owners
+/docs/adr/                      @my-org/architecture
+
+# intent.md: product owners accept intents.
+/docs/changes/**/intent.md      @my-org/product-owners
+# spec.md: product owners check it against the intent, spec writers review the design.
+/docs/changes/**/spec.md        @my-org/product-owners @my-org/spec-writers
+# plan.md: engineering leads accept the build plan.
+/docs/changes/**/plan.md        @my-org/engineering-leads
