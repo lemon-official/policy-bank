@@ -1,0 +1,4 @@
+# Central policy repo: changes need architecture + security approval.
+*                     @my-org/architecture @my-org/security
+/.github/             @my-org/platform @my-org/security
+/managed/             @my-org/platform @my-org/security

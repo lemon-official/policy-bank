@@ -1,0 +1,30 @@
+# Repo-local controls registry: copy to policy/controls.yaml.
+# Every control cites an ADR in docs/adr/ (ADR-NNNN) or an org ADR (ORG-NNNN).
+# The central check only evaluates controls whose applies_to globs match changed files
+# (all of them when this file changes).
+controls:
+  - id: spec-gate
+    kind: hook                       # PreToolUse Edit|Write, .claude/hooks/spec-gate.sh
+    adr: ADR-0012
+    applies_to: ["src/**", ".claude/**"]
+
+  - id: stop-gate
+    kind: hook                       # Stop, .claude/hooks/stop-gate.sh
+    adr: ADR-0014
+    applies_to: ["src/**", ".claude/**"]
+
+  - id: coverage
+    kind: threshold
+    key: coverage_min                # must be >= the org floor (org.coverage-floor)
+    value: 85
+    adr: ADR-0014
+    applies_to: ["src/**"]
+
+  - id: migrations-need-dba
+    kind: required-check
+    name: "ADR-0016 migration-review"
+    adr: ADR-0016
+    applies_to: ["migrations/**"]
+
+# overrides:
+#   disable: []                      # listing an org control id here fails the check

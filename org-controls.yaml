@@ -1,0 +1,37 @@
+# Org-wide controls. Owned by platform, security and architecture (see CODEOWNERS).
+# Change only through a superseding ADR in adr/. Repos may tighten, never loosen.
+version: 1
+traceability_adr: ORG-0005          # the ADR that explains this check itself
+
+protected_paths:                     # PRs touching these must cite an Accepted ADR
+  - ".claude/**"
+  - "policy/**"
+  - "**/managed-settings*.json"
+
+controls:
+  - id: org.artifact-gates
+    kind: codeowners
+    adr: ORG-0001
+    applies_to: [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS", "docs/changes/**", "docs/adr/**"]
+    require_codeowners: ["/docs/changes/", "/docs/adr/"]
+
+  - id: org.agent-cannot-merge
+    kind: permission-deny
+    adr: ORG-0002
+    applies_to: [".claude/**"]
+    deny:
+      - "Bash(gh pr merge *)"
+      - "Bash(git push --force *)"
+      - "Read(**/.env)"
+
+  - id: org.no-bypass-mode
+    kind: managed-setting            # enforced by managed-settings.json; listed for traceability
+    adr: ORG-0003
+    applies_to: [".claude/**", "**/managed-settings*.json"]
+
+  - id: org.coverage-floor
+    kind: threshold
+    adr: ORG-0004
+    key: coverage_min
+    min: 80
+    applies_to: ["src/**", "policy/controls.yaml"]

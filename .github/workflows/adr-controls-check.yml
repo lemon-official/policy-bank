@@ -1,0 +1,62 @@
+# Required by an org ruleset ("Require workflows to pass before merging").
+# Ruleset workflows ignore branch/path/type filters and run on the default
+# activity types of pull_request and merge_group, so the script scopes itself.
+name: ORG-0005 control-traceability
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read                    # read the repo under review; PR body comes from the event payload
+
+jobs:
+  adr-controls:
+    # Don't run against the policy repo itself.
+    if: github.repository != format('{0}/policy', github.repository_owner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository under review
+        uses: actions/checkout@<full-sha>            # v6
+        with:
+          fetch-depth: 0                             # needs base and head for the diff
+          path: target
+          persist-credentials: false
+
+      - name: Get a read-only token for the policy repo
+        id: policy-token
+        uses: actions/create-github-app-token@<full-sha>   # v2
+        with:
+          app-id: ${{ vars.POLICY_READER_APP_ID }}
+          private-key: ${{ secrets.POLICY_READER_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: policy
+
+      - name: Check out the policy repo at the released ref
+        uses: actions/checkout@<full-sha>            # v6
+        with:
+          repository: ${{ github.repository_owner }}/policy
+          ref: ${{ vars.POLICY_REF || 'main' }}      # org variable, e.g. policy-v14
+          token: ${{ steps.policy-token.outputs.token }}
+          path: policy
+          persist-credentials: false
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet "pyyaml==6.0.2"
+
+      - name: Check controls against ADRs
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          extra=()
+          # The PR-body reference was already enforced on the pull_request run.
+          [ "$EVENT" = "merge_group" ] && extra+=(--skip-pr-reference)
+          python3 policy/scripts/check_controls.py \
+            --repo target --policy policy \
+            --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --pr-body-file "$RUNNER_TEMP/pr-body.txt" "${extra[@]}"
