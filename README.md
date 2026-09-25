@@ -57,6 +57,7 @@ the plugin's `plugin.json` and its entry in `.claude-plugin/marketplace.json`; p
 
 ```
 .github/workflows/adr-controls-check.yml   the workflow the org ruleset requires
+.github/workflows/adr-controls-reusable.yml  same check via workflow_call (Free/Team plans)
 .github/CODEOWNERS                         architecture + security own this repo
 scripts/check_controls.py                  the check (Python 3.9+, PyYAML)
 org-controls.yaml                          org controls, protected paths, governing ADR
@@ -82,7 +83,24 @@ python3 scripts/check_controls.py --repo ../my-service --policy . \
   --base origin/main --head HEAD --pr-body-file body.txt
 ```
 
-## Set up in GitHub
+## Free/Team plan: reusable workflow
+
+Org rulesets with required workflows need Enterprise Cloud. On other plans each service repo
+calls `.github/workflows/adr-controls-reusable.yml` from its own workflow and makes the
+resulting check (`adr-controls / check`) required in a branch ruleset on its default branch.
+The policy repo is public, so no reader token is needed. Reference repo:
+[lemon-official/retro-raven](https://github.com/lemon-official/retro-raven).
+
+```yaml
+on: { pull_request: {}, merge_group: {} }
+permissions: { contents: read }
+jobs:
+  adr-controls:
+    uses: lemon-official/policy-bank/.github/workflows/adr-controls-reusable.yml@main
+    with: { policy-ref: main }        # pin both to a policy-vN tag once you cut one
+```
+
+## Set up in GitHub (Enterprise Cloud)
 
 Checked against the github/docs source. "Require workflows to pass before merging" and
 Evaluate mode are GitHub Enterprise Cloud (and GHES 3.12+) features.
