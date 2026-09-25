@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "policy-bank": {
+      "source": { "source": "github", "repo": "lemon-official/policy-bank" }
+    }
+  },
+  "enabledPlugins": {
+    "sdlc-guards@policy-bank": true
+  }
+}

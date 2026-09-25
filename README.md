@@ -6,7 +6,8 @@ A required workflow that every PR in targeted repos must pass. It fails when:
 2. the PR touches `.claude/**`, `policy/**` or `**/managed-settings*.json` without citing an
    Accepted ADR, either in the PR body or as a changed file under `docs/adr/`;
 3. a repo loosens an org control. That covers disabling one, a `permissions.allow` entry that
-   covers an org deny, a threshold below the org floor, and removing a required CODEOWNERS line.
+   covers an org deny, a threshold below the org floor, and removing a required CODEOWNERS line;
+4. a fix PR changes tests, test data or test config (ORG-0006, see below).
 
 Each failure names the ADR and its path, for example
 `FAIL [ORG-0002 policy:adr/0002-agents-cannot-merge.md] .claude/settings.json allows 'Bash(gh pr *)' ...`.
@@ -29,6 +30,7 @@ This repo is also a Claude Code plugin marketplace named `policy-bank`:
 | `sdlc-intent` | product owners | write-intent, review-spec-against-intent, resolve-concerns, accept-spec |
 | `sdlc-spec` | spec writers | spec-from-intent |
 | `sdlc-plan` | engineers | plan-from-spec |
+| `sdlc-guards` | recommended for anyone running fixes | hook: no test edits during fix tasks (ORG-0006) |
 
 The policy skills are placeholders until brand, security and design replace their rules.
 Intent, spec and plan templates sit next to the skill that writes them.
@@ -53,6 +55,63 @@ the plugin's `plugin.json` and its entry in `.claude-plugin/marketplace.json`; p
 `/plugin marketplace update policy-bank`. `validate-plugins.yml` runs
 `claude plugin validate --strict` on every change.
 
+## Fix PRs can't change tests (ORG-0006)
+
+An agent fixing failing code must not be able to weaken the check on that code. Two layers:
+
+| layer | what | status |
+|---|---|---|
+| PR check | `org.fix-keeps-tests` in the required workflow fails a fix PR that touches a test path | **the control** |
+| Claude Code hook | `sdlc-guards` plugin blocks the same edits while Claude works | recommended |
+
+A PR is a **fix PR** when its head branch matches `fix/**` or it has the `fix` label. The test
+paths are the `applies_to` list of `org.fix-keeps-tests` in `org-controls.yaml`: test dirs and
+files, `testdata/`, `fixtures/`, `conftest.py`, jest/vitest/pytest/coverage config, and
+`policy/controls.yaml` (it holds coverage thresholds). A failure reads:
+
+```
+FAIL [ORG-0006 policy:adr/0006-fix-tasks-keep-tests.md] fix PR (branch 'fix/null-check') changes
+tests/test_app.py. Fix PRs can't change tests or test config ('org.fix-keeps-tests'); ...
+```
+
+When a test really is wrong, the fix PR says so in its description, and a person changes the
+test in a separate PR that isn't on a `fix/` branch and has no `fix` label.
+
+### Set up the PR check
+
+The check runs inside the existing required workflow, so there is no new ruleset rule.
+
+1. Merge this, tag a new policy release (for example `policy-v2`) and set org variable
+   `POLICY_REF` to it. Until then, repos run the old ref without the rule.
+2. Make every automated fix open its PR from a `fix/` branch. For claude-code-action that is
+   `branch_prefix: fix/`; `templates/workflows/claude-fix.yml` is a ready workflow.
+3. Prefer the branch over the label. A ruleset-required workflow runs on the default
+   `pull_request` events (opened, synchronize, reopened), not on `labeled`, so a label added
+   after the PR opens only counts from the next push. The branch name can't change.
+4. Try it: open a PR from `fix/test-guard` that edits a file under `tests/`. The
+   `ORG-0006 control-traceability` check should fail with the message above.
+5. Optional, for PRs by people: add a CODEOWNERS line for test paths (for example
+   `**/tests/ @my-org/qa`) so any test change needs an owner's review.
+
+To add or remove a test path, change `applies_to` in `org-controls.yaml` and the `TEST_RE` in
+`plugins/sdlc-guards/scripts/protect-tests.sh` together, in a PR citing ORG-0006.
+
+### The recommended hook
+
+`sdlc-guards` ships a PreToolUse hook on Edit, Write, MultiEdit, NotebookEdit and Bash. It
+does nothing unless `SDLC_TASK=fix` is set. Then it blocks edits to the same test paths,
+and Claude sees the ORG-0006 reason and fixes the code instead. The Bash check covers common
+writes (`>`, `tee`, `sed -i`, `rm`, `mv`, `cp`, `git checkout|restore`) but is a heuristic;
+the PR check catches what it misses.
+
+- **One person:** `./scripts/install.sh --role plan --guards`, then run fixes as
+  `SDLC_TASK=fix claude`.
+- **Everyone:** add `templates/managed-settings.sdlc-guards.json` to managed settings. The
+  hook still only acts when `SDLC_TASK=fix` is set.
+- **CI fixes:** `templates/workflows/claude-fix.yml` sets `SDLC_TASK=fix` and installs the
+  plugin. policy-bank is private, so give the runner read access to it: make it internal, or
+  pass a token that can read it.
+
 ## Layout
 
 ```
@@ -69,6 +128,8 @@ plugins/<name>/                            role plugins and their skills
 scripts/install.sh                         installs the plugins for one or more roles
 templates/CODEOWNERS.sdlc                  role reviewers for intent/spec/plan PRs
 templates/claude/settings.json             repo settings that offer the plugins
+templates/managed-settings.sdlc-guards.json  managed settings that enable the sdlc-guards hook
+templates/workflows/claude-fix.yml         fix workflow: fix/ branches, SDLC_TASK=fix
 ```
 
 In a service repo: `docs/adr/NNNN-title.md` (ids `ADR-NNNN`) and `policy/controls.yaml`.
@@ -77,7 +138,8 @@ In a service repo: `docs/adr/NNNN-title.md` (ids `ADR-NNNN`) and `policy/control
 
 ```
 pip install pyyaml
-bash tests/make_fixtures.sh /tmp/fixtures      # expect: pass=0, missing-adr=1, loosens=1
+bash tests/make_fixtures.sh /tmp/fixtures      # expect: pass=0, missing-adr=1, loosens=1,
+                                                #   fix-edits-tests=1, fix-code-only=0
 python3 scripts/check_controls.py --repo ../my-service --policy . \
   --base origin/main --head HEAD --pr-body-file body.txt
 ```

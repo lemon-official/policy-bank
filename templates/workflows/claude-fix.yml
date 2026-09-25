@@ -1,0 +1,37 @@
+# Copy to <service-repo>/.github/workflows/claude-fix.yml.
+# Label an issue `fix` and Claude works on it with the ORG-0006 guard on:
+#   - the branch starts with fix/, so the required adr-controls-check treats the PR as a fix PR;
+#   - SDLC_TASK=fix turns on the sdlc-guards hook, which blocks test edits while Claude works.
+name: claude-fix
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  fix:
+    if: github.event.label.name == 'fix'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SDLC_TASK: fix
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@9171db3e57d6a3140a37ddc2ba92788584e0ead6  # v1.0.234
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          label_trigger: fix
+          branch_prefix: fix/
+          # policy-bank is private: the runner needs read access to clone it (see README).
+          plugin_marketplaces: https://github.com/lemon-official/policy-bank.git
+          plugins: |
+            sdlc-guards@policy-bank
+            org-policies@policy-bank

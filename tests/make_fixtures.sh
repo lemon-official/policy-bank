@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds three throwaway git repos (base commit + PR head commit) and runs the check on each.
+# Builds five throwaway git repos (base commit + PR head commit) and runs the check on each.
 set -euo pipefail
 KIT=$(cd "$(dirname "$0")/.." && pwd)
 OUT=${1:-$(mktemp -d)}
@@ -74,11 +74,33 @@ sed -i.bak '/docs\/adr/d' "$R/.github/CODEOWNERS" && rm "$R/.github/CODEOWNERS.b
 g "$R" commit -qam "speed things up"
 printf 'Per ADR-0012.\n' > "$OUT/loosens.body"
 
-for f in pass missing-adr loosens; do
+# 4) fix PR edits a test: fix/ branch changes src and weakens the test -> ORG-0006 fails
+R="$OUT/fix-edits-tests"; base_repo "$R"
+mkdir -p "$R/tests"; echo 'def test_app(): assert 1 == 1' > "$R/tests/test_app.py"
+g "$R" add -A; g "$R" commit -qm "add test"
+g "$R" checkout -qb fix/null-check
+echo 'print("fixed")' > "$R/src/app.py"
+echo 'def test_app(): pass' > "$R/tests/test_app.py"
+g "$R" commit -qam "fix null check"
+printf 'Fixes the null check.\n' > "$OUT/fix-edits-tests.body"
+
+# 5) fix PR that only changes code, labelled fix -> passes
+R="$OUT/fix-code-only"; base_repo "$R"
+mkdir -p "$R/tests"; echo 'def test_app(): assert 1 == 1' > "$R/tests/test_app.py"
+g "$R" add -A; g "$R" commit -qm "add test"
+echo 'print("fixed")' > "$R/src/app.py"
+g "$R" commit -qam "fix null check"
+printf 'Fixes the null check.\n' > "$OUT/fix-code-only.body"
+
+head_ref(){ case "$1" in fix-edits-tests) echo fix/null-check ;; *) echo feature/x ;; esac; }
+labels(){ case "$1" in fix-code-only) echo '["fix"]' ;; *) echo '[]' ;; esac; }
+
+for f in pass missing-adr loosens fix-edits-tests fix-code-only; do
   echo "================ fixture: $f"
   set +e
   python3 "$KIT/scripts/check_controls.py" --repo "$OUT/$f" --policy "$KIT" \
-    --base HEAD~1 --head HEAD --pr-body-file "$OUT/$f.body"
+    --base HEAD~1 --head HEAD --pr-body-file "$OUT/$f.body" \
+    --head-ref "$(head_ref "$f")" --pr-labels "$(labels "$f")"
   echo "exit code: $?"
   set -e
 done

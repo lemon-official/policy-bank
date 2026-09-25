@@ -51,6 +51,8 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
           printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
           extra=()
@@ -59,4 +61,5 @@ jobs:
           python3 policy/scripts/check_controls.py \
             --repo target --policy policy \
             --base "$BASE_SHA" --head "$HEAD_SHA" \
-            --pr-body-file "$RUNNER_TEMP/pr-body.txt" "${extra[@]}"
+            --pr-body-file "$RUNNER_TEMP/pr-body.txt" \
+            --head-ref "$HEAD_REF" --pr-labels "$PR_LABELS" "${extra[@]}"

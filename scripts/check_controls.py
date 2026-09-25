@@ -8,7 +8,9 @@ Fails when:
      without referencing an Accepted ADR in the PR body or in a changed ADR file;
   3. a repo-local rule loosens an org control (disables it, allows what it
      denies, drops a threshold below the org floor, removes a required
-     CODEOWNERS line).
+     CODEOWNERS line);
+  4. a fix PR (fix/** branch or `fix` label) changes tests, test data or test
+     config (control kind `fix-protects-tests`).
 
 A control is in scope when one of its `applies_to` globs matches a changed
 file, or when the registry file that defines it changed.
@@ -277,6 +279,25 @@ def check_loosening(ck: Checker, org: list[dict], local_doc: dict,
                             str(owners.relative_to(ck.repo)) if owners else ".github/CODEOWNERS")
 
 
+def check_fix_tests(ck: Checker, org: list[dict], changed: list[str],
+                    head_ref: str, labels: set[str]) -> None:
+    """Fix PRs must not change the tests that judge them."""
+    for c in org:
+        if c.get("kind") != "fix-protects-tests":
+            continue
+        by_branch = bool(head_ref) and matches_any(head_ref, c.get("fix_branches"))
+        by_label = sorted(labels & set(c.get("fix_labels") or []))
+        if not (by_branch or by_label):
+            continue
+        why = f"branch '{head_ref}'" if by_branch else f"label '{by_label[0]}'"
+        adr = ck.resolve(c.get("adr"))
+        lbl = adr.label() if adr else "[org]"
+        for f in changed:
+            if matches_any(f, c.get("applies_to")):
+                ck.fail(lbl, f"fix PR ({why}) changes {f}. Fix PRs can't change tests or test "
+                        f"config ('{c.get('id')}'); change the test in a separate, reviewed PR.", f)
+
+
 # ---------------------------------------------------------------- main
 
 def main(argv=None) -> int:
@@ -288,6 +309,9 @@ def main(argv=None) -> int:
     ap.add_argument("--pr-body-file", help="file holding the PR description")
     ap.add_argument("--skip-pr-reference", action="store_true",
                     help="skip the protected-path reference check (merge_group runs)")
+    ap.add_argument("--head-ref", default="", help="PR head branch, for fix-PR detection")
+    ap.add_argument("--pr-labels", default="",
+                    help="PR labels, comma-separated or a JSON list, for fix-PR detection")
     a = ap.parse_args(argv)
 
     ck = Checker(Path(a.repo).resolve(), Path(a.policy).resolve())
@@ -315,6 +339,7 @@ def main(argv=None) -> int:
         body = Path(a.pr_body_file).read_text(encoding="utf-8") if a.pr_body_file else ""
         check_reference(ck, changed, protected, body, governing)
     check_loosening(ck, org, local_doc, in_scope_org)
+    check_fix_tests(ck, org, changed, a.head_ref, parse_labels(a.pr_labels))
 
     if ck.failures:
         print()
@@ -323,6 +348,16 @@ def main(argv=None) -> int:
         return 1
     print("\nOK: every control in scope traces to an Accepted ADR and no org control is loosened.")
     return 0
+
+
+def parse_labels(raw: str) -> set[str]:
+    raw = (raw or "").strip()
+    if raw.startswith("["):
+        try:
+            return {str(x).strip() for x in json.loads(raw) if str(x).strip()}
+        except json.JSONDecodeError:
+            pass
+    return {x.strip() for x in raw.split(",") if x.strip()}
 
 
 def matches_any_changed(control: dict, changed: list[str]) -> bool:

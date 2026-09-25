@@ -1,0 +1,13 @@
+{
+  "description": "ORG-0006: fix tasks can't change the tests that judge them.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/protect-tests.sh\"", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

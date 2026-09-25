@@ -5,7 +5,8 @@
 #   ./install.sh --role spec               spec writers: spec-from-intent
 #   ./install.sh --role plan               engineers: plan-from-spec
 #   ./install.sh --role po --role plan     several roles
-#   ./install.sh --role all                everything
+#   ./install.sh --role all                all three roles
+#   ./install.sh --role po --guards        also the recommended sdlc-guards hooks (ORG-0006)
 #
 # Every role also gets org-policies (brand, security, UX), pulled in as a dependency.
 # Options: --scope user|project|local (default user). Safe to re-run.
@@ -16,6 +17,7 @@ MARKETPLACE=policy-bank
 SOURCE="${POLICY_BANK_SOURCE:-lemon-official/policy-bank}"
 SCOPE=user
 roles=()
+guards=false
 
 usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
@@ -23,6 +25,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --role)  [ $# -ge 2 ] || usage 2; roles+=("$2"); shift 2 ;;
     --scope) [ $# -ge 2 ] || usage 2; SCOPE="$2"; shift 2 ;;
+    --guards) guards=true; shift ;;
     -h|--help) usage 0 ;;
     *) echo "unknown argument: $1" >&2; usage 2 ;;
   esac
@@ -40,6 +43,7 @@ for r in "${roles[@]}"; do
     *) echo "unknown role: $r (po, spec, plan, all)" >&2; exit 2 ;;
   esac
 done
+$guards && plugins+=(sdlc-guards)
 
 if claude plugin marketplace list 2>/dev/null | grep -qw "$MARKETPLACE"; then
   echo "marketplace $MARKETPLACE already added; updating"

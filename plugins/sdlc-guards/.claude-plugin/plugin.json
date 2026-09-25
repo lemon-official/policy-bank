@@ -1,0 +1,6 @@
+{
+  "name": "sdlc-guards",
+  "version": "1.0.0",
+  "description": "Recommended guardrail hooks: during a fix task (SDLC_TASK=fix), block edits to tests and test config (ORG-0006).",
+  "author": { "name": "lemon-official" }
+}

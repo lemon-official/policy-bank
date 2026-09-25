@@ -35,3 +35,29 @@ controls:
     key: coverage_min
     min: 80
     applies_to: ["src/**", "policy/controls.yaml"]
+
+  - id: org.fix-keeps-tests
+    kind: fix-protects-tests
+    adr: ORG-0006
+    # A PR is a fix PR when its head branch matches fix_branches or it carries a fix_labels label.
+    fix_branches: ["fix/**"]
+    fix_labels: ["fix"]
+    # Tests, test data and the config that decides whether tests pass. Keep the sdlc-guards
+    # hook (plugins/sdlc-guards/scripts/protect-tests.sh) in step with this list.
+    applies_to:
+      - "**/test/**"
+      - "**/tests/**"
+      - "**/__tests__/**"
+      - "**/testdata/**"
+      - "**/fixtures/**"
+      - "**/*_test.*"
+      - "**/*.test.*"
+      - "**/*.spec.*"
+      - "**/test_*.py"
+      - "**/conftest.py"
+      - "**/jest.config.*"
+      - "**/vitest.config.*"
+      - "**/pytest.ini"
+      - "**/.coveragerc"
+      - "**/codecov.yml"
+      - "policy/controls.yaml"
