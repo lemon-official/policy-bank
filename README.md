@@ -14,6 +14,45 @@ Each failure names the ADR and its path, for example
 Only controls whose `applies_to` globs match a changed file are evaluated. When
 `policy/controls.yaml` itself changes, all of them are.
 
+## Skills marketplace
+
+This repo is also a Claude Code plugin marketplace named `policy-bank`:
+
+```
+/plugin marketplace add lemon-official/policy-bank
+/plugin install sdlc-intent@policy-bank
+```
+
+| plugin | for | skills |
+|---|---|---|
+| `org-policies` | everyone (installed as a dependency of the others) | brand-guidelines, security-policy, ux-standards |
+| `sdlc-intent` | product owners | write-intent, review-spec-against-intent, resolve-concerns, accept-spec |
+| `sdlc-spec` | spec writers | spec-from-intent |
+| `sdlc-plan` | engineers | plan-from-spec |
+
+The policy skills are placeholders until brand, security and design replace their rules.
+Intent, spec and plan templates sit next to the skill that writes them.
+
+**Install by role** (safe to re-run; restart Claude Code afterwards):
+
+```
+./scripts/install.sh --role po            # po | spec | plan | all, repeatable
+./scripts/install.sh --role spec --role plan --scope project
+```
+
+**Roll out without the script:** put `templates/claude/settings.json` in a service repo as
+`.claude/settings.json` (Claude Code prompts people to install when they trust the folder),
+or put the same keys in managed settings to enable them for everyone.
+
+**Reviewers by role:** copy `templates/CODEOWNERS.sdlc` into each service repo's
+`.github/CODEOWNERS`. With "Require review from Code Owners" in the org ruleset, intent PRs
+request product owners, spec PRs product owners and spec writers, plan PRs engineering leads.
+
+**Changing a skill:** PR under `plugins/`, owned per `.github/CODEOWNERS`. Bump `version` in
+the plugin's `plugin.json` and its entry in `.claude-plugin/marketplace.json`; people get it on
+`/plugin marketplace update policy-bank`. `validate-plugins.yml` runs
+`claude plugin validate --strict` on every change.
+
 ## Layout
 
 ```
@@ -25,6 +64,11 @@ adr/NNNN-*.md                              org ADRs (ORG-NNNN)
 templates/controls.yaml                    copy to <repo>/policy/controls.yaml
 templates/adr-template.md                  copy to <repo>/docs/adr/NNNN-title.md
 tests/make_fixtures.sh                     builds 3 fixture repos and runs the check
+.claude-plugin/marketplace.json            the policy-bank marketplace
+plugins/<name>/                            role plugins and their skills
+scripts/install.sh                         installs the plugins for one or more roles
+templates/CODEOWNERS.sdlc                  role reviewers for intent/spec/plan PRs
+templates/claude/settings.json             repo settings that offer the plugins
 ```
 
 In a service repo: `docs/adr/NNNN-title.md` (ids `ADR-NNNN`) and `policy/controls.yaml`.
@@ -43,14 +87,14 @@ python3 scripts/check_controls.py --repo ../my-service --policy . \
 Checked against the github/docs source. "Require workflows to pass before merging" and
 Evaluate mode are GitHub Enterprise Cloud (and GHES 3.12+) features.
 
-1. **Create the repo** `<org>/policy` with **internal** visibility. An internal workflow can
+1. **Create the repo** `<org>/policy-bank` with **internal** visibility. An internal workflow can
    run on internal and private repos; a private one only on private repos. Push this kit.
-   Replace every `<full-sha>` with a real commit SHA.
+   Action refs are pinned to commit SHAs; bump them deliberately.
 2. **Allow Actions access.** Go to policy repo, Settings, Actions, General, Access, and choose
    "Accessible from repositories in the `<org>` organization".
 3. **Create a read token for the policy files.** The workflow runs in the context of the PR's
-   repo, so it needs a token to check out `<org>/policy`. Create a GitHub App with
-   `Contents: read`, install it on `policy` only, then add org variable `POLICY_READER_APP_ID`,
+   repo, so it needs a token to check out `<org>/policy-bank`. Create a GitHub App with
+   `Contents: read`, install it on `policy-bank` only, then add org variable `POLICY_READER_APP_ID`,
    org secret `POLICY_READER_PRIVATE_KEY`, and org variable `POLICY_REF` (a release tag such as
    `policy-v1`).
 4. **Create the org ruleset.** Go to Org settings, Repository, Rulesets, New branch ruleset.
@@ -60,7 +104,7 @@ Evaluate mode are GitHub Enterprise Cloud (and GHES 3.12+) features.
      - Require a pull request before merging, with "Require review from Code Owners" and
        "Dismiss stale approvals".
      - Require status checks to pass.
-     - Require workflows to pass before merging: add workflow, choose `<org>/policy`,
+     - Require workflows to pass before merging: add workflow, choose `<org>/policy-bank`,
        `.github/workflows/adr-controls-check.yml`, and pin it to a tag or SHA.
    - Enforcement: **Evaluate** first and watch Rule Insights, then **Active**.
    - Bypass: org admins only, audited. Creating a new repo needs bypass or Evaluate, because

@@ -13,12 +13,12 @@ permissions:
 jobs:
   adr-controls:
     # Don't run against the policy repo itself.
-    if: github.repository != format('{0}/policy', github.repository_owner)
+    if: github.repository != format('{0}/policy-bank', github.repository_owner)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out the repository under review
-        uses: actions/checkout@<full-sha>            # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0                             # needs base and head for the diff
           path: target
@@ -26,17 +26,17 @@ jobs:
 
       - name: Get a read-only token for the policy repo
         id: policy-token
-        uses: actions/create-github-app-token@<full-sha>   # v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
         with:
           app-id: ${{ vars.POLICY_READER_APP_ID }}
           private-key: ${{ secrets.POLICY_READER_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: policy
+          repositories: policy-bank
 
       - name: Check out the policy repo at the released ref
-        uses: actions/checkout@<full-sha>            # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          repository: ${{ github.repository_owner }}/policy
+          repository: ${{ github.repository_owner }}/policy-bank
           ref: ${{ vars.POLICY_REF || 'main' }}      # org variable, e.g. policy-v14
           token: ${{ steps.policy-token.outputs.token }}
           path: policy

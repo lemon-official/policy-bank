@@ -2,3 +2,11 @@
 *                     @my-org/architecture @my-org/security
 /.github/             @my-org/platform @my-org/security
 /managed/             @my-org/platform @my-org/security
+# Skills marketplace. Policy skills belong to their policy owners.
+/.claude-plugin/                                      @my-org/platform
+/plugins/                                             @my-org/platform
+/plugins/org-policies/skills/brand-guidelines/        @my-org/brand
+/plugins/org-policies/skills/security-policy/         @my-org/security
+/plugins/org-policies/skills/ux-standards/            @my-org/design
+/plugins/sdlc-intent/                                 @my-org/product-owners @my-org/platform
+/scripts/install.sh                                   @my-org/platform
