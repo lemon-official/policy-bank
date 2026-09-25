@@ -18,6 +18,7 @@ Only controls whose `applies_to` globs match a changed file are evaluated. When
 
 ```
 .github/workflows/adr-controls-check.yml   the workflow the org ruleset requires
+.github/workflows/adr-controls-reusable.yml  same check via workflow_call (Free/Team plans)
 .github/CODEOWNERS                         architecture + security own this repo
 scripts/check_controls.py                  the check (Python 3.9+, PyYAML)
 org-controls.yaml                          org controls, protected paths, governing ADR
@@ -38,19 +39,35 @@ python3 scripts/check_controls.py --repo ../my-service --policy . \
   --base origin/main --head HEAD --pr-body-file body.txt
 ```
 
-## Set up in GitHub
+## Free/Team plan: reusable workflow
+
+Org rulesets with required workflows need Enterprise Cloud. On other plans each service repo
+calls `.github/workflows/adr-controls-reusable.yml` from its own workflow and makes the
+resulting check (`adr-controls / check`) required in a branch ruleset on its default branch.
+The policy repo is public, so no reader token is needed. Reference repo:
+[lemon-official/retro-raven](https://github.com/lemon-official/retro-raven).
+
+```yaml
+on: { pull_request: {}, merge_group: {} }
+permissions: { contents: read }
+jobs:
+  adr-controls:
+    uses: lemon-official/policy-bank/.github/workflows/adr-controls-reusable.yml@main
+    with: { policy-ref: main }        # pin both to a policy-vN tag once you cut one
+```
+
+## Set up in GitHub (Enterprise Cloud)
 
 Checked against the github/docs source. "Require workflows to pass before merging" and
 Evaluate mode are GitHub Enterprise Cloud (and GHES 3.12+) features.
 
-1. **Create the repo** `<org>/policy` with **internal** visibility. An internal workflow can
+1. **Create the repo** `<org>/policy-bank` with **internal** visibility. An internal workflow can
    run on internal and private repos; a private one only on private repos. Push this kit.
-   Replace every `<full-sha>` with a real commit SHA.
 2. **Allow Actions access.** Go to policy repo, Settings, Actions, General, Access, and choose
    "Accessible from repositories in the `<org>` organization".
 3. **Create a read token for the policy files.** The workflow runs in the context of the PR's
-   repo, so it needs a token to check out `<org>/policy`. Create a GitHub App with
-   `Contents: read`, install it on `policy` only, then add org variable `POLICY_READER_APP_ID`,
+   repo, so it needs a token to check out `<org>/policy-bank`. Create a GitHub App with
+   `Contents: read`, install it on `policy-bank` only, then add org variable `POLICY_READER_APP_ID`,
    org secret `POLICY_READER_PRIVATE_KEY`, and org variable `POLICY_REF` (a release tag such as
    `policy-v1`).
 4. **Create the org ruleset.** Go to Org settings, Repository, Rulesets, New branch ruleset.
@@ -60,7 +77,7 @@ Evaluate mode are GitHub Enterprise Cloud (and GHES 3.12+) features.
      - Require a pull request before merging, with "Require review from Code Owners" and
        "Dismiss stale approvals".
      - Require status checks to pass.
-     - Require workflows to pass before merging: add workflow, choose `<org>/policy`,
+     - Require workflows to pass before merging: add workflow, choose `<org>/policy-bank`,
        `.github/workflows/adr-controls-check.yml`, and pin it to a tag or SHA.
    - Enforcement: **Evaluate** first and watch Rule Insights, then **Active**.
    - Bypass: org admins only, audited. Creating a new repo needs bypass or Evaluate, because

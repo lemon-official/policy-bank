@@ -1,0 +1,70 @@
+# Reusable form of the ORG-0005 check, for orgs without "Require workflows to pass before
+# merging" (GitHub Free/Team). A service repo calls it from its own workflow and makes the
+# resulting status check required in a branch ruleset:
+#
+#   jobs:
+#     adr-controls:
+#       uses: lemon-official/policy-bank/.github/workflows/adr-controls-reusable.yml@policy-v1
+#       with:
+#         policy-ref: policy-v1          # keep equal to the @ref above
+#
+# The policy repo is public, so it is checked out without a token.
+name: ORG-0005 control-traceability (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      policy-repo:
+        description: owner/name of the policy repo
+        type: string
+        default: lemon-official/policy-bank
+      policy-ref:
+        description: tag or SHA of the policy repo to check against
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository under review
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          fetch-depth: 0
+          path: target
+          persist-credentials: false
+
+      - name: Check out the policy repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          repository: ${{ inputs.policy-repo }}
+          ref: ${{ inputs.policy-ref }}
+          path: policy
+          persist-credentials: false
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet "pyyaml==6.0.2"
+
+      - name: Check controls against ADRs
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          extra=()
+          # PR-body references are only checked on pull_request runs.
+          [ "$EVENT" != "pull_request" ] && extra+=(--skip-pr-reference)
+          # First push to a new branch has no usable "before" SHA.
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA=$(git -C target rev-list --max-parents=0 HEAD | tail -1)
+          fi
+          python3 policy/scripts/check_controls.py \
+            --repo target --policy policy \
+            --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --pr-body-file "$RUNNER_TEMP/pr-body.txt" "${extra[@]}"
