@@ -35,6 +35,13 @@
       "description": "Engineers: turn an accepted spec.md into plan.md for plan mode.",
       "version": "1.0.0",
       "category": "sdlc"
+    },
+    {
+      "name": "running-servers",
+      "source": "./plugins/running-servers",
+      "description": "Developers: a pane listing the servers running on your Mac by repo and worktree, with LAN expose, shell, restart and stop, and a bar above the prompt with the services of the current chat and branch.",
+      "version": "0.1.0",
+      "category": "developer-tools"
     }
   ]
 }
