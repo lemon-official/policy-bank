@@ -1,0 +1,9 @@
+{
+  "name": "running-servers",
+  "version": "0.1.0",
+  "description": "A pane listing the servers listening on this Mac, grouped by repo and worktree, with LAN expose, shell, restart and stop actions",
+  "author": {
+    "name": "lemon-official"
+  },
+  "types": "./types/index.d.ts"
+}
