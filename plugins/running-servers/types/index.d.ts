@@ -40,6 +40,17 @@ export type Network = {
   tailscaleIp?: string
 }
 
+// Where the session works, for the bar's "same worktree / branch" match.
+export type Here = {
+  cwd: string
+  worktree?: string
+  branch?: string
+}
+
+// A Bash call's span, widened: a server whose root started inside one was
+// (likely) started by this chat.
+export type Launch = { from: number; to: number }
+
 declare module 'claude-code' {
   interface PluginState {
     'running-servers': {
@@ -50,6 +61,10 @@ declare module 'claude-code' {
       network: Shaped<Network>
       // Ids of the rows whose details (command, where, addresses) are unfolded.
       expanded: string[]
+      // The bar above the prompt: on or off (`/servers-bar`).
+      bar: boolean
+      here: Shaped<Here>
+      launches: Launch[]
     }
   }
 }

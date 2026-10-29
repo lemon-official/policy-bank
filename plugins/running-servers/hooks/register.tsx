@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderSurface } from 'claude-code'
 
-import type { Network, Origin, Server } from '../types'
+import type { Here, Network, Origin, Server } from '../types'
+import type { Chip, StripProps } from './bar-strip'
 
 const PANE = 'running-servers'
 const TITLE = 'Servers'
@@ -10,6 +11,15 @@ const REFRESH_MS = 10_000
 const ACTIONS_WIDTH = 10
 // Marks this mod's LAN forwarders in `ps`, followed by the port they forward.
 const EXPOSE_MARK = 'running-servers-expose'
+// How long after a Bash call a server may start and still count as this chat's:
+// a backgrounded `npm i && npm run dev` comes up well after the call returns.
+const LAUNCH_SLACK_MS = 60_000
+// The bar's icon for a known application, matched on its folder, name or container.
+const APP_ICONS: [RegExp, string][] = [
+  [/chatumcg/i, '⚕️'],
+  [/vox/i, '🦊'],
+  [/umcp|(^|[^a-z])mcp/i, '🦮'],
+]
 
 // Change the tag when a Server's fields change: it declines what an earlier
 // version stored, which outlives a reload.
@@ -21,6 +31,9 @@ const scanning = atom({ plugin: 'running-servers', key: 'scanning' } as const, f
 const scannedAt = atom({ plugin: 'running-servers', key: 'scannedAt' } as const, 0)
 const network = atom({ plugin: 'running-servers', key: 'network' } as const, {}, { shape: 'network-1' })
 const expanded = atom({ plugin: 'running-servers', key: 'expanded' } as const, [])
+const bar = atom({ plugin: 'running-servers', key: 'bar' } as const, true)
+const here = atom({ plugin: 'running-servers', key: 'here' } as const, { cwd: '' }, { shape: 'here-1' })
+const launches = atom({ plugin: 'running-servers', key: 'launches' } as const, [])
 
 const ICON: Record<Origin, string> = {
   terminal: '🖥️',
@@ -79,11 +92,15 @@ export const register: Register = on => {
       name: 'servers',
       description: 'Show the servers listening on this Mac in a pane',
     })
+    await $.command.register({
+      name: 'servers-bar',
+      description: 'Turn the bar of this chat\'s servers above the prompt on or off',
+    })
     paneOpen = true
     void $.ui.open({ id: PANE, title: TITLE })
     void scan($)
-    $.clock.every(REFRESH_MS, () => {
-      if (paneOpen) void scan($)
+    $.clock.every(REFRESH_MS, async () => {
+      if (paneOpen || (await read($, bar))) void scan($)
     })
 
     return next(e)
@@ -95,6 +112,27 @@ export const register: Register = on => {
     void scan($)
 
     return { text: 'Servers pane opened.' }
+  })
+
+  on('command.run', { command: 'servers-bar' }, async $ => {
+    const isOn = await update($, bar, v => !v)
+    if (isOn) void scan($)
+
+    return { text: isOn ? 'Servers bar on.' : 'Servers bar off.' }
+  })
+
+  // Every Bash call opens a window in which a server that starts counts as this
+  // chat's; the bar matches start times against them.
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const from = await $.clock.now()
+    const ran = await next(e)
+    if (ran.deny === undefined) {
+      const to = (await $.clock.now()) + LAUNCH_SLACK_MS
+      await update($, launches, ws => [...ws, { from: from - 2_000, to }].slice(-200))
+      if (await read($, bar)) rescanSoon($)
+    }
+
+    return ran
   })
 
   on('ui.close', { id: PANE }, ($, e, next) => {
@@ -313,6 +351,75 @@ export const register: Register = on => {
       </Box>
     )
   })
+
+  // The bar above the prompt: the services this chat started, then those of its
+  // worktree or branch, in a strip that slides sideways (./bar-strip.tsx).
+  // Nothing to show, it leaves the band to others.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey || !(await read($, bar))) return next(e)
+    const table = $.ui.resolve(e)
+    if (!('Client' in table)) return next(e)
+    const { Box, Text, Button, Client } = table
+    const list = await read($, servers)
+    const where = await read($, here)
+    const ws = await read($, launches)
+    const now = await read($, scannedAt)
+    const fancy = e.surface !== 'terminal'
+    const chips = list
+      .flatMap(s => {
+        const why = relation(s, where, ws)
+
+        return why ? [{ s, why }] : []
+      })
+      .sort((a, b) => Number(b.why === 'chat') - Number(a.why === 'chat'))
+      .map(({ s, why }): Chip => {
+        const tag = why === 'branch' ? `⎇ ${s.branch}` : why === 'worktree' ? '⎇ worktree' : why === 'folder' ? '📁 folder' : undefined
+        const note = [tag, age(now, s.startedAt)].filter(Boolean).join(' · ')
+        const label = `${appIcon(s)} ${s.name}`
+        // An emoji takes two cells; a port chip is " :port " and a gap.
+        const width = (fancy ? 4 : 0) + label.length + 1 + s.ports.reduce((n, p) => n + String(p).length + 4, 0) + (note ? note.length + 1 : 0)
+
+        return { id: s.id, label, ports: s.ports.map(port => ({ port, isLan: s.lan?.includes(port) ?? false })), note, isChat: why === 'chat', width }
+      })
+    if (chips.length === 0) return next(e)
+    const strip: StripProps = { chips, fancy }
+
+    return (
+      <Box flexDirection="row" alignItems="center" gap={1}>
+        <Client key="bar:strip" module="./bar-strip.tsx" props={strip} flexGrow={1} />
+        <Button
+          key="bar:pane"
+          plain
+          dimColor
+          onPress={() => {
+            paneOpen = true
+            void $.ui.open({ id: PANE, title: TITLE, focus: true })
+          }}
+        >
+          <Text color="suggestion">⧉</Text>
+        </Button>
+        <Button
+          key="bar:hide"
+          plain
+          dimColor
+          onPress={() => {
+            void update($, bar, () => false)
+            $.ui.toast('Servers bar off: /servers-bar brings it back')
+          }}
+        >
+          <Text dimColor>✕</Text>
+        </Button>
+      </Box>
+    )
+  })
+
+  // A port chip pressed in the strip.
+  on('ui.message', { element: 'bar:strip' }, async ($, e, next) => {
+    const data = e.data as { open?: unknown } | null
+    if (typeof data?.open === 'number') await openUrl($, data.open)
+
+    return next(e)
+  })
 }
 
 // --- scanning -------------------------------------------------------------
@@ -322,8 +429,9 @@ async function scan($: EngineInterface): Promise<void> {
   inFlight = (async () => {
     await update($, scanning, () => true)
     try {
-      const list = await collect($)
+      const [list, at] = await Promise.all([collect($), readHere($)])
       await update($, servers, () => list)
+      await update($, here, () => at)
     } finally {
       await update($, scanning, () => false)
       inFlight = undefined
@@ -434,6 +542,39 @@ async function nameByGit($: EngineInterface, list: Server[]): Promise<void> {
     s.name = sub || basename(git.top)
     s.branch = git.branch === 'HEAD' ? 'detached' : git.branch
   }
+}
+
+async function readHere($: EngineInterface): Promise<Here> {
+  const cwd = await $.session.cwd()
+  const r = await run($, ['git', '-C', cwd, 'rev-parse', '--show-toplevel', '--abbrev-ref', 'HEAD'])
+  const [worktree = '', branch = ''] = r.stdout.trim().split('\n')
+  if (r.exitCode !== 0 || !worktree) return { cwd }
+
+  return { cwd, worktree, branch: branch === 'HEAD' ? undefined : branch }
+}
+
+// Why the bar shows a service: this chat started it (a Claude-run or detached
+// process, or a container, that started inside a Bash call's window), or it runs
+// in the session's worktree, on its branch, or under its folder (outside git;
+// not for a folder as wide as the home folder).
+function relation(s: Server, at: Here, ws: { from: number; to: number }[]): 'chat' | 'worktree' | 'branch' | 'folder' | undefined {
+  const t = s.startedAt
+  const byChat = s.origin === 'claude' || s.origin === 'background' || s.origin === 'docker'
+  if (byChat && t !== undefined && ws.some(w => t >= w.from && t <= w.to)) return 'chat'
+  if (at.worktree && s.worktree === at.worktree) return 'worktree'
+  if (at.branch && s.branch === at.branch) return 'branch'
+  const deep = at.cwd.split('/').length > 3
+  if (!at.worktree && deep && s.cwd && (s.cwd === at.cwd || s.cwd.startsWith(`${at.cwd}/`))) return 'folder'
+
+  return undefined
+}
+
+// A known application's icon in the bar, else where the service was started.
+function appIcon(s: Server): string {
+  const names = [s.group, s.worktree, s.name, s.container].filter(Boolean).map(n => basename(n ?? ''))
+  const hit = APP_ICONS.find(([re]) => names.some(n => re.test(n)))
+
+  return hit?.[1] ?? ICON[s.origin]
 }
 
 function basename(path: string): string {

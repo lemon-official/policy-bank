@@ -29,7 +29,7 @@ This repo is also a Claude Code plugin marketplace named `policy-bank`:
 | `sdlc-intent` | product owners | write-intent, review-spec-against-intent, resolve-concerns, accept-spec |
 | `sdlc-spec` | spec writers | spec-from-intent |
 | `sdlc-plan` | engineers | plan-from-spec |
-| `running-servers` | developers (macOS) | none: a mod that adds a Servers pane and `/servers` |
+| `running-servers` | developers (macOS) | none: a mod that adds a Servers pane (`/servers`) and a bar above the prompt (`/servers-bar`) |
 
 The policy skills are placeholders until brand, security and design replace their rules.
 Intent, spec and plan templates sit next to the skill that writes them.
